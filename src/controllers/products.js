@@ -1,115 +1,92 @@
-import dotenv from "dotenv";
-import Product from "../models/product";
-import { productSchema } from "../schemas/product";
-import Category from "../models/category";
-dotenv.config();
+const Product = require('../models/product');
 
-export const getAll = async (req, res) => {
-    const { _limit = 10, _sort = "createAt", _order = "asc" } = req.query;
+// Get all products
+exports.getAllProducts = (req, res) => {
+  Product.find()
+    .then((products) => {
+      res.send(products);
+    })
+    .catch((err) => {
+      res.status(500).send({
+        message: err.message || 'Some error occurred while retrieving products.',
+      });
+    });
+};
 
-    const options = {
-        customLabels: {
-            docs: "data",
-            limit: _limit,
-            sort: {
-                [_sort]: _order === "desc" ? -1 : 1,
-            },
-        },
-    };
-    try {
-        const products = await Product.paginate({}, options);
-        if (products.length === 0) {
-            return res.status(404).json({
-                message: "Không có sản phẩm nào",
-            });
-        }
-        return res.json({
-            message: "Lấy danh sách sản phẩm thành công",
-            products,
-        });
-    } catch (error) {
-        return res.status(400).json({
-            message: error.message,
-        });
-    }
-};
-export const get = async (req, res) => {
-    try {
-        const product = await Product.findById(req.params.id).populate("categoryId");
+// Get a single product
+exports.getProductById = (req, res) => {
+  const { id } = req.params;
 
-        if (!product) {
-            return res.json({
-                message: "Không tìm thấy sản phẩm",
-            });
-        }
-        return res.json({
-            message: "Lấy sản phẩm thành công",
-            product,
+  Product.findById(id)
+    .then((product) => {
+      if (!product) {
+        return res.status(404).send({
+          message: `Product with id ${id} not found`,
         });
-    } catch (error) {
-        return res.status(400).json({
-            message: error,
-        });
-    }
+      }
+      res.send(product);
+    })
+    .catch((err) => {
+      res.status(500).send({
+        message: err.message || 'Some error occurred while retrieving product.',
+      });
+    });
 };
-export const create = async (req, res) => {
-    try {
-        // validate
-        const { error } = productSchema.validate(req.body);
-        if (error) {
-            return res.status(400).json({
-                message: error.details[0].message,
-            });
-        }
-        const product = await Product.create(req.body);
-        await Category.findByIdAndUpdate(product.categoryId, {
-            $addToSet: { products: product._id },
-        });
-        if (!product) {
-            return res.json({
-                message: "Thêm sản phẩm không thành công",
-            });
-        }
-        return res.json({
-            message: "Thêm sản phẩm thành công",
-            product,
-        });
-    } catch (error) {
-        return res.status(400).json({
-            message: error.message,
-        });
-    }
+// Create a new product
+exports.createProduct = (req, res) => {
+  const { name, price, avatar } = req.body;
+
+  const product = new Product({
+    name,
+    price,
+    avatar,
+  });
+
+  product.save()
+    .then((data) => {
+      res.send(data);
+    })
+    .catch((err) => {
+      res.status(500).send({
+        message: err.message || 'Some error occurred while creating the product.',
+      });
+    });
 };
-export const update = async (req, res) => {
-    try {
-        const product = await Product.findOneAndUpdate({ _id: req.params.id }, req.body, {
-            new: true,
+// Update a product
+exports.updateProduct = (req, res) => {
+  const { id } = req.params;
+
+  Product.findByIdAndUpdate(id, req.body, { new: true })
+    .then((product) => {
+      if (!product) {
+        return res.status(404).send({
+          message: `Product with id ${id} not found`,
         });
-        if (!product) {
-            return res.json({
-                message: "Cập nhật sản phẩm không thành công",
-            });
-        }
-        return res.json({
-            message: "Cập nhật sản phẩm thành công",
-            product,
-        });
-    } catch (error) {
-        return res.status(400).json({
-            message: error,
-        });
-    }
+      }
+      res.send(product);
+    })
+    .catch((err) => {
+      res.status(500).send({
+        message: err.message || 'Some error occurred while updating the product',
+      });
+    });
 };
-export const remove = async (req, res) => {
-    try {
-        const product = await Product.findByIdAndDelete(req.params.id);
-        return res.json({
-            message: "Xóa sản phẩm thành công",
-            product,
+// Delete a product
+exports.deleteProduct = (req, res) => {
+  const { id } = req.params;
+
+  Product.findByIdAndRemove(id)
+    .then((product) => {
+      if (!product) {
+        return res.status(404).send({
+          message: `Product with id ${id} not found`,
         });
-    } catch (error) {
-        return res.status(400).json({
-            message: error,
-        });
-    }
+      }
+      res.send({ message: 'Product deleted successfully!' });
+    })
+    .catch((err) => {
+      res.status(500).send({
+        message: err.message || 'Some error occurred while deleting the product',
+      });
+    });
 };
